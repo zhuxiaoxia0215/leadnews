@@ -22,10 +22,10 @@ public class MinIOTest {
 
     public static void main(String[] args) {
 
-        try (FileInputStream fileInputStream = new FileInputStream("D:/list.html")) {
+        try (FileInputStream fileInputStream = new FileInputStream("E:\\BaiduNetdiskDownload\\day02-app端文章查看，静态化freemarker,分布式文件系统minIO\\资料\\模板文件\\plugins\\js\\index.js")) {
             MinioClient minioClient = MinioClient.builder().endpoint("http://192.168.1.10:9000").credentials("minio", "minio123").build();
 
-            PutObjectArgs putObjectArgs = PutObjectArgs.builder().object("list.html").contentType("text/html").bucket("leadnews").
+            PutObjectArgs putObjectArgs = PutObjectArgs.builder().object("plugins/js/index.js").contentType("text/javascript").bucket("leadnews").
                     stream(fileInputStream, fileInputStream.available(), -1).build();
             minioClient.putObject(putObjectArgs);
             System.out.println("上传成功");
@@ -39,7 +39,7 @@ public class MinIOTest {
 
     @Test
     public void testUpload() throws FileNotFoundException {
-        FileInputStream fileInputStream = new FileInputStream("D:/list.html");
+        FileInputStream fileInputStream = new FileInputStream("E:\\BaiduNetdiskDownload\\day02-app端文章查看，静态化freemarker,分布式文件系统minIO\\资料\\模板文件\\plugins\\css\\index.css");
         String path = fileStorageService.uploadHtmlFile("", "list.html", fileInputStream);
         System.out.println(path);
 
