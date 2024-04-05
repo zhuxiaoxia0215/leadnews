@@ -1,6 +1,7 @@
 package com.heima.wemedia.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenImageScan;
 import com.heima.common.aliyun.GreenTextScan;
@@ -9,9 +10,12 @@ import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.wemedia.pojos.WmChannel;
 import com.heima.model.wemedia.pojos.WmNews;
+import com.heima.model.wemedia.pojos.WmSensitive;
 import com.heima.model.wemedia.pojos.WmUser;
+import com.heima.utils.common.SensitiveWordUtil;
 import com.heima.wemedia.mapper.WmChannelMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
+import com.heima.wemedia.mapper.WmSensitiveMapper;
 import com.heima.wemedia.mapper.WmUserMapper;
 import com.heima.wemedia.service.WmNewsAutoScanService;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +63,12 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         if (wmNews.getStatus().equals(WmNews.Status.SUBMIT.getCode())) {
             //审核文本内容
             Map<String, Object> textAndImages = handleTextAndImg(wmNews);
+
+            boolean isSensitive = handleSensitiveScan((String) textAndImages.get("content"), wmNews);
+            if (!isSensitive) {
+                return;
+            }
+
             boolean isTextScan = hadleTextScan((String) textAndImages.get("content"), wmNews);
             if (!isTextScan) {
                 return;
@@ -69,14 +79,33 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
                 return;
             }
             ResponseResult responseResult = saveAppArticle(wmNews);
-            if(responseResult.getCode().equals(200)){
+            if (responseResult.getCode().equals(200)) {
                 throw new RuntimeException("WmNewsAutoScanServiceImpl-文章审核，保存app端相关文章数据失败");
             }
             wmNews.setArticleId((Long) responseResult.getData());
-            updateWmNews(wmNews, (short) 9 , "审核成功");
+            updateWmNews(wmNews, (short) 9, "审核成功");
         }
 
 
+    }
+
+    @Autowired
+    private WmSensitiveMapper wmSentiveMapper;
+
+    private boolean handleSensitiveScan(String content, WmNews wmNews) {
+        boolean flag = true;
+        //获取所有的敏感词
+        List<WmSensitive> wmSensitives = wmSentiveMapper.selectList(Wrappers.<WmSensitive>lambdaQuery().select(WmSensitive::getSensitives));
+        List<String> sensitiveList = wmSensitives.stream().map(WmSensitive::getSensitives).collect(Collectors.toList());
+
+        //初始化所有敏感词库
+        SensitiveWordUtil.initMap(sensitiveList);
+        Map<String, Integer> map = SensitiveWordUtil.matchWords(content);
+        if (map.size() > 0) {
+            updateWmNews(wmNews, (short) 2, "当前文章中存在违规内容" + map);
+            flag = false;
+        }
+        return false;
     }
 
     private ResponseResult saveAppArticle(WmNews wmNews) {
@@ -84,15 +113,15 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         BeanUtils.copyProperties(wmNews, dto);
         dto.setLayout(wmNews.getType());
         WmChannel wmChannel = wmChannelMapper.selectById(wmNews.getChannelId());
-        if(wmChannel != null){
+        if (wmChannel != null) {
             dto.setChannelName(wmChannel.getName());
         }
         dto.setAuthorId(wmNews.getUserId().longValue());
         WmUser wmUser = userMapper.selectById(wmNews.getUserId());
-        if(wmUser != null){
+        if (wmUser != null) {
             dto.setAuthorName(wmUser.getName());
         }
-        if(wmNews.getArticleId() != null){
+        if (wmNews.getArticleId() != null) {
             dto.setId(wmNews.getArticleId());
         }
         dto.setCreatedTime(new Date());
@@ -103,7 +132,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     private boolean hadleImageScan(List<String> images, WmNews wmNews) {
         boolean flag = true;
 
-        if(images == null || images.size() == 0){
+        if (images == null || images.size() == 0) {
             return flag;
         }
 
