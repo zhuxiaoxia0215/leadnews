@@ -21,6 +21,7 @@ import com.heima.utils.thread.WmThreadLocalUtil;
 import com.heima.wemedia.mapper.WmMaterialMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
 import com.heima.wemedia.mapper.WmNewsMaterialMapper;
+import com.heima.wemedia.service.WmNewsAutoScanService;
 import com.heima.wemedia.service.WmNewsService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
@@ -44,6 +45,8 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
     private WmNewsMaterialMapper wmNewsMaterialMapper;
     @Autowired
     private WmMaterialMapper wmMaterialMapper;
+    @Autowired
+    private WmNewsAutoScanService wmNewsAutoScanService;
 
     @Override
     public ResponseResult findList(WmNewsPageReqDto dto) {
@@ -97,6 +100,9 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         saveRelativeInfoForContent(materials, wmNews.getId());
 
         saveRelativeInfoForCover(dto, wmNews, materials);
+
+        //审核文章
+        wmNewsAutoScanService.autoScanWmNews(wmNews.getId());
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
