@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenImageScan;
 import com.heima.common.aliyun.GreenTextScan;
+import com.heima.common.tess4j.Tess4jClient;
 import com.heima.file.service.FileStorageService;
 import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
@@ -28,6 +29,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,6 +56,8 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     private WmChannelMapper wmChannelMapper;
     @Autowired
     private WmUserMapper userMapper;
+    @Autowired
+    private Tess4jClient tess4jClient;
 
     @Override
     @Async //表明当前方法是一个异步方法
@@ -139,10 +147,24 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         //下载图片
         images = images.stream().distinct().collect(Collectors.toList());
         List<byte[]> imagesList = new ArrayList<>();
-        for (String image : images) {
-            byte[] bytes = fileStorageService.downLoadFile(image);
-            imagesList.add(bytes);
+        try {
+            for (String image : images) {
+                byte[] bytes = fileStorageService.downLoadFile(image);
+                //图片识别
+                ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+                BufferedImage bufferdImage = ImageIO.read(in);
+                String result = tess4jClient.doOCR(bufferdImage);
+                //过滤文字
+                boolean isSensitive = handleSensitiveScan(result, wmNews);
+                if (!isSensitive) {
+                    return isSensitive;
+                }
+                imagesList.add(bytes);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         try {
             Map map = greenImageScan.imageScan(imagesList);
             if (map != null) {

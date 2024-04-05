@@ -23,7 +23,7 @@ public class MinIOTest {
     public static void main(String[] args) {
 
         try (FileInputStream fileInputStream = new FileInputStream("E:\\BaiduNetdiskDownload\\day02-app端文章查看，静态化freemarker,分布式文件系统minIO\\资料\\模板文件\\plugins\\js\\index.js")) {
-            MinioClient minioClient = MinioClient.builder().endpoint("http://192.168.1.10:9000").credentials("minio", "minio123").build();
+            MinioClient minioClient = MinioClient.builder().endpoint("http://192.168.1.8:9000").credentials("minio", "minio123").build();
 
             PutObjectArgs putObjectArgs = PutObjectArgs.builder().object("plugins/js/index.js").contentType("text/javascript").bucket("leadnews").
                     stream(fileInputStream, fileInputStream.available(), -1).build();
