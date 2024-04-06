@@ -123,16 +123,22 @@ public class TaskServiceImpl implements TaskService {
     @Scheduled(cron = "0 */1 * * * ?")
     public void refresh() {
 
-        Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
-        for (String futureKey : futureKeys) {
+        String token = cacheService.tryLock("FUTURE_TASK_SYNC", 1000 * 30);
 
-            String topicKey = ScheduleConstants.TOPIC + futureKey.split(ScheduleConstants.FUTURE)[1];
+        if(StringUtils.isNotBlank(token)){
+            log.info("定时任务刷新");
 
-            Set<String> tasks = cacheService.zRangeByScore(futureKey, 0, System.currentTimeMillis());
-            if (!tasks.isEmpty()) {
-                cacheService.refreshWithPipeline(futureKey, topicKey, tasks);
+            Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
+            for (String futureKey : futureKeys) {
+
+                String topicKey = ScheduleConstants.TOPIC + futureKey.split(ScheduleConstants.FUTURE)[1];
+
+                Set<String> tasks = cacheService.zRangeByScore(futureKey, 0, System.currentTimeMillis());
+                if (!tasks.isEmpty()) {
+                    cacheService.refreshWithPipeline(futureKey, topicKey, tasks);
+                    log.info("刷新一条数据");
+                }
             }
         }
     }
-
 }
