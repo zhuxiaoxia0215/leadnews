@@ -2,6 +2,7 @@ package com.heima.schedule.service.impl;
 
 
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.common.constants.ScheduleConstants;
 import com.heima.common.redis.CacheService;
 import com.heima.model.schedule.dtos.Task;
@@ -18,8 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -125,7 +128,7 @@ public class TaskServiceImpl implements TaskService {
 
         String token = cacheService.tryLock("FUTURE_TASK_SYNC", 1000 * 30);
 
-        if(StringUtils.isNotBlank(token)){
+        if (StringUtils.isNotBlank(token)) {
             log.info("定时任务刷新");
 
             Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
@@ -140,5 +143,34 @@ public class TaskServiceImpl implements TaskService {
                 }
             }
         }
+    }
+
+    /**
+     * 数据库任务定时同步到redis
+     */
+    @PostConstruct
+    @Scheduled(cron = "0 */5 * * * ?")
+    public void reloadData() {
+        clearCache();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MINUTE, 5);
+        List<Taskinfo> taskinfoList = taskinfoMapper.selectList(Wrappers.<Taskinfo>lambdaQuery().lt(Taskinfo::getExecuteTime, calendar.getTime()));
+        if (taskinfoList != null && taskinfoList.size() > 0) {
+            for (Taskinfo taskinfo : taskinfoList) {
+                Task task = new Task();
+                BeanUtils.copyProperties(taskinfo, task);
+                task.setExecuteTime(taskinfo.getExecuteTime().getTime());
+                addTaskToCache(task);
+            }
+        }
+        log.info("同步任务数：" + taskinfoList.size());
+    }
+
+    public void clearCache() {
+        Set<String> topicKeys = cacheService.scan(ScheduleConstants.TOPIC + "*");
+        Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
+        cacheService.delete(topicKeys);
+        cacheService.delete(futureKeys);
     }
 }
