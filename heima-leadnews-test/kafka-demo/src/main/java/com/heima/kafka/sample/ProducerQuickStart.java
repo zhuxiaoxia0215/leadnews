@@ -8,7 +8,7 @@ public class ProducerQuickStart {
     public static void main(String[] args) {
         // 配置Kafka生产者
         Properties props = new Properties();
-        props.put("bootstrap.servers", "192.168.1.9:9092"); // Kafka服务器的地址和端口
+        props.put("bootstrap.servers", "192.168.1.10:9092"); // Kafka服务器的地址和端口
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
