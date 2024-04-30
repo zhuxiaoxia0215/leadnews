@@ -1,6 +1,8 @@
 package com.heima.article.service.impl;
 
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.nacos.common.utils.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.heima.article.mapper.ApArticleConfigMapper;
@@ -9,6 +11,7 @@ import com.heima.article.mapper.ApArticleMapper;
 import com.heima.article.service.ApArticleService;
 import com.heima.article.service.ArticleFreemarkerService;
 import com.heima.common.constants.ArticleConstants;
+import com.heima.common.redis.CacheService;
 import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.article.dtos.ArticleHomeDto;
 import com.heima.model.article.pojos.ApArticle;
@@ -17,6 +20,7 @@ import com.heima.model.article.pojos.ApArticleContent;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.common.enums.AppHttpCodeEnum;
 
+import com.heima.model.vos.HotArticleVo;
 import org.jsoup.helper.StringUtil;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +40,8 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
     private ApArticleConfigMapper apArticleConfigMapper;
     @Autowired
     private ApArticleContentMapper articleContentMapper;
+    @Autowired
+    private CacheService cacheService;
 
     @Override
     public ResponseResult load(ArticleHomeDto dto, Short type) {
@@ -64,6 +70,18 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
 
         List<ApArticle> apArticles = apArticleMapper.loadArticleList(dto, type);
         return ResponseResult.okResult(apArticles);
+    }
+
+    @Override
+    public ResponseResult load(ArticleHomeDto dto, Short type, boolean firstPage) {
+        if (firstPage) {
+            String jsonStr = cacheService.get(ArticleConstants.HOT_ARTICLE_FIRST_PAGE + dto.getTag());
+            if (StringUtils.isNotBlank(jsonStr)) {
+                List<HotArticleVo> hotArticleVoList = JSON.parseArray(jsonStr, HotArticleVo.class);
+                return ResponseResult.okResult(hotArticleVoList);
+            }
+        }
+        return load(dto, type);
     }
 
     @Autowired
@@ -102,4 +120,6 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
 
         return ResponseResult.okResult(apArticle.getId());
     }
+
+
 }
